@@ -17,6 +17,12 @@ def parse_html_from_file(filename):
         return soup
     return None
 
+def check_product_exists(products, product_link):
+    for product in products:
+        if product['link'] == product_link:
+            return True
+    return False
+
 def parse_product_table(soup):
     product_list = []
 
@@ -26,6 +32,9 @@ def parse_product_table(soup):
         product['name'] = a.text.replace('\n', ' ').replace('  ',' ')
         product['link'] = a['href']
         product['price'] = li.contents[-1].replace('für ', '').replace('für','').replace('\n', ' ').replace('€','').strip()
+
+        if check_product_exists(product_list, product['link']):
+            continue
 
         product_soup = parse_html_from_url(product['link'])
         if product_soup:
