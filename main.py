@@ -1,14 +1,8 @@
+import aiohttp
+import asyncio
+import backoff
 from bs4 import BeautifulSoup
 import json
-import requests
-
-def parse_html_from_url(url):
-    response = requests.get(url)
-    if response.status_code == 200:
-        html = response.content
-        soup = BeautifulSoup(html, 'html.parser')
-        return soup
-    return None
 
 def parse_html_from_file(filename):
     with open(filename, 'r') as f:
@@ -35,52 +29,6 @@ def check_product_exists(products, product_link):
         if product['link'] == product_link:
             return True
     return False
-
-def parse_product_table(soup):
-    product_list = []
-
-    for li in soup.find_all('li'):
-        product = {}
-        a = li.find('a')
-        product['name'] = a.text.replace('\n', ' ').replace('  ',' ')
-        product['link'] = a['href']
-        product['price'] = li.contents[-1].replace('für ', '').replace('für','').replace('\n', ' ').replace('€','').strip()
-
-        if check_product_exists(product_list, product['link']):
-            continue
-
-        product_soup = parse_html_from_url(product['link'])
-        if product_soup:
-            # discount
-            percentage_text = find_percentage_text(product_soup)
-            if percentage_text:
-                product['discount'] = percentage_text
-
-            # image
-            image_url = find_image_url(product_soup)
-            if image_url:
-                product['image'] = image_url
-
-            data = parse_product_data(product_soup)
-
-            # more accurate image
-            if len(data['image']) > 0:
-                product['image'] = data['image'][0]
-
-            # availability
-            try:
-                product['available'] = "InStock" in data['offers']['availability']
-            except:
-                product['available'] = False # "SoldOut"
-
-        print(product)
-
-        product_list.append(product)
-
-        # if len(product_list) > 5:
-        #     break
-
-    return product_list
 
 def find_image_url(soup):
     image_element = soup.find('img', class_='k-image k-image--contain')
@@ -126,23 +74,67 @@ def parse_product_data(soup):
             return data
     return None
 
+product_list = []
+
+@backoff.on_exception(backoff.expo, aiohttp.ClientError, max_time=120)
+async def parse_html_from_url(url):
+    async with aiohttp.ClientSession(raise_for_status=True) as session:
+        async with session.get(url) as response:
+            html_content = await response.text()
+            return html_content
+
+async def parse_product_table(url):
+    try:
+        html_content = await parse_html_from_url(url)
+        soup = BeautifulSoup(html_content, 'html.parser')
+        if soup:
+            product = {}
+            data = parse_product_data(soup)
+            product['name'] = data['name']
+            product['link'] = data['offers']['url']
+            product['price'] = data['offers']['price'].replace('€','')
+            try:
+                product['discount'] = data['discount']
+            except:
+                percentage_text = find_percentage_text(soup)
+                if percentage_text:
+                    product['discount'] = percentage_text
+            if len(data['image']) > 0:
+                product['image'] = data['image'][0]
+            try:
+                product['available'] = "InStock" in data['offers']['availability']
+            except:
+                product['available'] = False # "SoldOut"
+
+            print(product)
+
+        product_list.append(product)
+    except aiohttp.ClientResponseError as e:
+        print(url, file=sys.stderr)
+        print(e)
+
+async def parse_product_tables_parallel(urls):
+    tasks = []
+    for url in urls:
+        tasks.append(asyncio.create_task(parse_product_table(url)))
+    await asyncio.gather(*tasks)
+
 def main():
-    # from file
-    # soup = parse_html_from_file('50off.html')
-    # from url
-    # soup = parse_html_from_url('https://schneinet.de/50off.html')
-
+    # get product urls
+    # TODO from url https://schneinet.de/50off.html
     product_urls = parse_products_from_file('50off.html')
+    print(f"Found {len(product_urls)} product URLs")
 
-    if soup:
-        products = parse_product_table(soup)
+    # fetch product pages and build product list
+    asyncio.run(parse_product_tables_parallel(product_urls))
+    print(f"Found {len(product_list)} product details")
 
-        html_table = generate_html_table(products)
-        filename = 'products.html'
-        with open(filename, 'w') as file:
-            file.write(html_table)
-
-            print(f"Product table written to {filename}")
+    # output results
+    html_table = generate_html_table(product_list)
+    filename = 'products.html'
+    with open(filename, 'w') as file:
+        file.write(html_table)
+        print(f"Product table written to {filename}")
 
 if __name__ == '__main__':
     main()
