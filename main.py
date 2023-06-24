@@ -17,6 +17,19 @@ def parse_html_from_file(filename):
         return soup
     return None
 
+def parse_products_from_file(filename):
+    products = []
+    with open(filename, 'r') as f:
+        html = f.read()
+        soup = BeautifulSoup(html, 'html.parser')
+        for li in soup.find_all('li'):
+            product = {}
+            a = li.find('a')
+            link = a['href']
+            if link not in products:
+                products.append(link)
+    return products
+
 def check_product_exists(products, product_link):
     for product in products:
         if product['link'] == product_link:
@@ -115,10 +128,11 @@ def parse_product_data(soup):
 
 def main():
     # from file
-    soup = parse_html_from_file('50off.html')
-
+    # soup = parse_html_from_file('50off.html')
     # from url
     # soup = parse_html_from_url('https://schneinet.de/50off.html')
+
+    product_urls = parse_products_from_file('50off.html')
 
     if soup:
         products = parse_product_table(soup)
