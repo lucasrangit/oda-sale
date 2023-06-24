@@ -76,7 +76,7 @@ def parse_product_data(soup):
 
 product_list = []
 
-@backoff.on_exception(backoff.expo, aiohttp.ClientError, max_time=120)
+@backoff.on_exception(backoff.expo, aiohttp.ClientError, max_time=600)
 async def parse_html_from_url(url):
     async with aiohttp.ClientSession(raise_for_status=True) as session:
         async with session.get(url) as response:
