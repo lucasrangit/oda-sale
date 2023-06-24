@@ -38,14 +38,23 @@ def parse_product_table(soup):
 
         product_soup = parse_html_from_url(product['link'])
         if product_soup:
+            # discount
             percentage_text = find_percentage_text(product_soup)
             if percentage_text:
                 product['discount'] = percentage_text
+
+            # image
             image_url = find_image_url(product_soup)
             if image_url:
                 product['image'] = image_url
 
             data = parse_product_data(product_soup)
+
+            # more accurate image
+            if len(data['image']) > 0:
+                product['image'] = data['image'][0]
+
+            # availability
             try:
                 product['available'] = "InStock" in data['offers']['availability']
             except:
@@ -119,8 +128,7 @@ def main():
         with open(filename, 'w') as file:
             file.write(html_table)
 
-        print(f"HTML table written to {filename}")
-
+            print(f"Product table written to {filename}")
 
 if __name__ == '__main__':
     main()
