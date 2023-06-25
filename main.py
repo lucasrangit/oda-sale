@@ -126,6 +126,7 @@ def main():
     print(f"Found {len(product_urls)} product URLs")
 
     # fetch product pages and build product list
+    # try using concurrent.futures https://stackoverflow.com/a/74080466
     print("Fetching products", end = '', flush = True)
     asyncio.run(parse_product_tables_parallel(product_urls))
     print(f"\nFound {len(product_list)} product details")
