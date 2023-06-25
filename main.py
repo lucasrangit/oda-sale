@@ -45,21 +45,22 @@ def find_percentage_text(soup):
         return percentage_text
     return None
 
-def generate_html_table(products, available=True):
+def generate_html_table(products, is_available=True):
     sorted_products = sorted(products, key=lambda p: (p['discount'], -float(p['price'])))
 
     table_html = '<table>\n'
     table_html += '<tr><th>Name</th><th>Link</th><th>Price</th><th>Discount</th><th>Image</th></tr>\n'
 
     for product in sorted_products:
-        if available or product['available']:
-            name = product['name']
-            link = product['link']
-            price = product['price']
-            discount = product['discount']
-            image = product['image']
-            image_width = 400
-            table_html += f'<tr><td>{name}</td><td><a href="{link}">{link}</a></td><td>{price}</td><td>{discount}</td><td><img src="{image}" width="{image_width}"></td></tr>\n'
+        if is_available and not product['available']:
+            continue
+        name = product['name']
+        link = product['link']
+        price = product['price']
+        discount = product['discount']
+        image = product['image']
+        image_width = 400
+        table_html += f'<tr><td>{name}</td><td><a href="{link}">{link}</a></td><td>{price}</td><td>{discount}</td><td><img src="{image}" width="{image_width}"></td></tr>\n'
 
     table_html += '</table>'
 
@@ -127,14 +128,14 @@ def main():
     # fetch product pages and build product list
     print("Fetching products", end = '', flush = True)
     asyncio.run(parse_product_tables_parallel(product_urls))
-    print(f"Found {len(product_list)} product details")
+    print(f"\nFound {len(product_list)} product details")
 
     # output results
     html_table = generate_html_table(product_list)
     filename = 'products.html'
     with open(filename, 'w') as file:
         file.write(html_table)
-        print(f"\nProduct table written to {filename}")
+        print(f"Product table written to {filename}")
 
 if __name__ == '__main__':
     main()
