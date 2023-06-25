@@ -76,7 +76,7 @@ def parse_product_data(soup):
 
 product_list = []
 
-@backoff.on_exception(backoff.expo, aiohttp.ClientError, max_time=900)
+@backoff.on_exception(backoff.expo, aiohttp.ClientError, max_time=1800)
 async def parse_html_from_url(url):
     async with aiohttp.ClientSession(raise_for_status=True) as session:
         async with session.get(url) as response:
@@ -105,13 +105,12 @@ async def parse_product_table(url):
                 product['available'] = "InStock" in data['offers']['availability']
             except:
                 product['available'] = False # "SoldOut"
-
-            print(product)
+            print(".", end = '', flush = True)
 
         product_list.append(product)
+
     except aiohttp.ClientResponseError as e:
-        print(url, file=sys.stderr)
-        print(e)
+        print(f"{type(e).__name__}: {url}", file=sys.stderr)
 
 async def parse_product_tables_parallel(urls):
     tasks = []
@@ -126,6 +125,7 @@ def main():
     print(f"Found {len(product_urls)} product URLs")
 
     # fetch product pages and build product list
+    print("Fetching products", end = '', flush = True)
     asyncio.run(parse_product_tables_parallel(product_urls))
     print(f"Found {len(product_list)} product details")
 
@@ -134,7 +134,7 @@ def main():
     filename = 'products.html'
     with open(filename, 'w') as file:
         file.write(html_table)
-        print(f"Product table written to {filename}")
+        print(f"\nProduct table written to {filename}")
 
 if __name__ == '__main__':
     main()
